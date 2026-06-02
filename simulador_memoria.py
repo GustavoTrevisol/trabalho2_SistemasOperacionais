@@ -12,7 +12,7 @@ class Frame:
         self.id_frame = id_frame
         self.pagina_alocada = None  # Armazena o número da página ou None se estiver vazio
         # Dica para os alunos: vocês podem adicionar atributos aqui para ajudar no algoritmo (ex: timestamp, contador)
-
+        self.bit_referencia = 0
 
 class TabelaPaginas:
     def __init__(self, num_frames):
@@ -20,6 +20,8 @@ class TabelaPaginas:
         self.frames = [Frame(i) for i in range(num_frames)]
         self.total_page_faults = 0
         self.total_acessos = 0
+        self.ponteiro = 0
+        
 
     def acessar_pagina(self, numero_pagina):
         self.total_acessos += 1
@@ -27,6 +29,7 @@ class TabelaPaginas:
         # 1. Verificar se a página já está em algum frame (Hit)
         for frame in self.frames:
             if frame.pagina_alocada == numero_pagina:
+                frame.bit_referencia = 1
                 # TODO: Se necessário para o algoritmo (ex: LRU), atualize metadados aqui.
                 return True, frame.id_frame  # Retorna (Hit=True, frame_id)
 
@@ -37,6 +40,7 @@ class TabelaPaginas:
         for frame in self.frames:
             if frame.pagina_alocada is None:
                 frame.pagina_alocada = numero_pagina
+                frame.bit_referencia = 1
                 # TODO: Se necessário para o algoritmo, inicialize metadados do frame aqui.
                 return False, frame.id_frame  # Retorna (Hit=False, frame_id)
 
@@ -53,12 +57,20 @@ class TabelaPaginas:
         """
         frame_escolhido_id = 0
 
-        # Escreva a lógica do algoritmo aqui...
+        #implementacao algoritmo Segunda Chance
+        while True:
+            frame_atual = self.frames[self.ponteiro]
+            if frame_atual.bit_referencia == 1:
+                frame_atual.bit_referencia = 0
+                self.ponteiro = (self.ponteiro + 1) % len(self.frames)
+            else:
+                frame_atual.pagina_alocada = nova_pagina
+                frame_atual.bit_referencia = 1
+                frame_escolhido_id = frame_atual.id_frame
 
-        # Exemplo de atualização (substitua pela lógica real):
-        # self.frames[frame_escolhido_id].pagina_alocada = nova_pagina
+                return frame_escolhido_id
 
-        return frame_escolhido_id
+
 
     def imprimir_mapa_memoria(self, passo, pagina_acessada, foi_hit, frame_alterado=None):
         """
@@ -73,7 +85,7 @@ class TabelaPaginas:
         for frame in self.frames:
             conteudo = f"Página {frame.pagina_alocada}" if frame.pagina_alocada is not None else "[Vazio]"
             marcador = " <-- Alterado" if frame.id_frame == frame_alterado and not foi_hit else ""
-            print(f"[Frame {frame.id_frame}]: {conteudo}{marcador}")
+            print(f"[Frame {frame.id_frame}  R={frame.bit_referencia}]: {conteudo}{marcador}")
 
         print("-" * 40)
 
