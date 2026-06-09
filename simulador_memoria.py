@@ -67,7 +67,7 @@ class TabelaPaginas:
                 frame_atual.pagina_alocada = nova_pagina
                 frame_atual.bit_referencia = 1
                 frame_escolhido_id = frame_atual.id_frame
-
+                self.ponteiro = (self.ponteiro + 1) % len(self.frames)
                 return frame_escolhido_id
 
 
@@ -85,7 +85,7 @@ class TabelaPaginas:
         for frame in self.frames:
             conteudo = f"Página {frame.pagina_alocada}" if frame.pagina_alocada is not None else "[Vazio]"
             marcador = " <-- Alterado" if frame.id_frame == frame_alterado and not foi_hit else ""
-            print(f"[Frame {frame.id_frame}  R={frame.bit_referencia}]: {conteudo}{marcador}")
+            print(f"[Frame {frame.id_frame}]: {conteudo}{marcador}")
 
         print("-" * 40)
 
