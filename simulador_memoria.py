@@ -5,6 +5,7 @@
 ###
 
 import sys
+from collections import deque
 
 
 class Frame:
@@ -15,13 +16,18 @@ class Frame:
         self.bit_referencia = 0
 
 class TabelaPaginas:
-    def __init__(self, num_frames):
+    def __init__(self, num_frames, algoritmo):
         # Inicializa a memória física com a quantidade de frames especificada
         self.frames = [Frame(i) for i in range(num_frames)]
         self.total_page_faults = 0
         self.total_acessos = 0
+        self.algoritmo = algoritmo
+
+        # Estado interno do Segunda Chance (Clock)
         self.ponteiro = 0
-        
+
+        # Estado interno do FIFO: fila com a ordem de chegada das páginas
+        self.fila_fifo = deque()
 
     def acessar_pagina(self, numero_pagina):
         self.total_acessos += 1
@@ -30,7 +36,6 @@ class TabelaPaginas:
         for frame in self.frames:
             if frame.pagina_alocada == numero_pagina:
                 frame.bit_referencia = 1
-                # TODO: Se necessário para o algoritmo (ex: LRU), atualize metadados aqui.
                 return True, frame.id_frame  # Retorna (Hit=True, frame_id)
 
         # 2. Se não encontrou, ocorreu um Page Fault!
@@ -41,7 +46,7 @@ class TabelaPaginas:
             if frame.pagina_alocada is None:
                 frame.pagina_alocada = numero_pagina
                 frame.bit_referencia = 1
-                # TODO: Se necessário para o algoritmo, inicialize metadados do frame aqui.
+                self.fila_fifo.append(numero_pagina)
                 return False, frame.id_frame  # Retorna (Hit=False, frame_id)
 
         # 4. Memória cheia: Aplicar algoritmo de substituição de página
@@ -49,15 +54,23 @@ class TabelaPaginas:
         return False, frame_vitima_id
 
     def substituir_pagina(self, nova_pagina):
-        """
-        TODO: IMPLEMENTAR PELO GRUPO
-        Esta função deve escolher uma página 'vítima' para ser substituída
-        com base no algoritmo escolhido (FIFO ou LRU), atualizar o frame
-        escolhido com a nova_pagina e retornar o ID do frame que foi alterado.
-        """
-        frame_escolhido_id = 0
+        if self.algoritmo == "FIFO":
+            return self._substituir_fifo(nova_pagina)
+        else:
+            return self._substituir_segunda_chance(nova_pagina)
 
-        #implementacao algoritmo Segunda Chance
+    def _substituir_fifo(self, nova_pagina):
+        # Remove a página mais antiga da fila e encontra seu frame
+        pagina_vitima = self.fila_fifo.popleft()
+        for frame in self.frames:
+            if frame.pagina_alocada == pagina_vitima:
+                frame.pagina_alocada = nova_pagina
+                frame.bit_referencia = 1
+                self.fila_fifo.append(nova_pagina)
+                return frame.id_frame
+
+    def _substituir_segunda_chance(self, nova_pagina):
+        # Percorre os frames em ordem circular até encontrar um com bit = 0
         while True:
             frame_atual = self.frames[self.ponteiro]
             if frame_atual.bit_referencia == 1:
@@ -70,18 +83,10 @@ class TabelaPaginas:
                 self.ponteiro = (self.ponteiro + 1) % len(self.frames)
                 return frame_escolhido_id
 
-
-
     def imprimir_mapa_memoria(self, passo, pagina_acessada, foi_hit, frame_alterado=None):
-        """
-        TODO: IMPLEMENTAR PELO GRUPO
-        Esta função deve imprimir o estado atual da memória física (frames) no terminal,
-        conforme o padrão visual exigido no enunciado do trabalho.
-        """
         status = "Hit" if foi_hit else "Page Fault"
         print(f"\n--- Passo {passo}: Acesso à Página {pagina_acessada} ({status}) ---")
 
-        # Exemplo de iteração sobre os frames para os alunos completarem o print:
         for frame in self.frames:
             conteudo = f"Página {frame.pagina_alocada}" if frame.pagina_alocada is not None else "[Vazio]"
             marcador = " <-- Alterado" if frame.id_frame == frame_alterado and not foi_hit else ""
@@ -91,8 +96,9 @@ class TabelaPaginas:
 
 
 class Simulador:
-    def __init__(self, caminho_arquivo):
+    def __init__(self, caminho_arquivo, algoritmo):
         self.caminho_arquivo = caminho_arquivo
+        self.algoritmo = algoritmo
 
     def executar(self):
         try:
@@ -111,9 +117,9 @@ class Simulador:
 
         # A primeira linha válida define o número de frames na memória RAM simulada
         num_frames = int(linhas[0])
-        tabela_paginas = TabelaPaginas(num_frames)
+        tabela_paginas = TabelaPaginas(num_frames, self.algoritmo)
 
-        print(f"Iniciando simulação com {num_frames} frames disponíveis.")
+        print(f"Iniciando simulação com {num_frames} frames disponíveis. Algoritmo: {self.algoritmo}")
         print("=" * 40)
 
         # As linhas seguintes são a sequência de acessos às páginas
@@ -139,7 +145,14 @@ class Simulador:
 
 
 if __name__ == "__main__":
-    # Permite passar o arquivo de entrada por argumento de linha de comando ou usa um padrão
+    # Uso: python simulador_memoria.py <arquivo> <FIFO|SC>
     arquivo_entrada = sys.argv[1] if len(sys.argv) > 1 else "entrada.txt"
-    simulador = Simulador(arquivo_entrada)
+    algoritmo = sys.argv[2].upper() if len(sys.argv) > 2 else "SC"
+
+    if algoritmo not in ("FIFO", "SC"):
+        print(f"Erro: algoritmo '{algoritmo}' inválido. Use FIFO ou SC.")
+        sys.exit(1)
+
+    simulador = Simulador(arquivo_entrada, algoritmo)
     simulador.executar()
+    
